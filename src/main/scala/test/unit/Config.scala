@@ -1,13 +1,14 @@
 package test.unit
 
 /**
- * Configuration for running tests.
- * Specifies the logger, language for messages, and default timeout.
- * This object is passed to the `run` methods of `Test` and `TestSuite`.
+ * Holds configuration settings for running tests, including the logger,
+ * language for messages, and the default timeout duration.
+ * An instance of `Config` is typically passed to the `run` methods of [[Test]] and [[TestSuite]].
  *
- * @param logger The logger implementation to use for output.
- * @param language The language for localizing test messages.
- * @param timeout The default timeout in seconds for tests that don't specify an override.
+ * @param logger The [[Logger]] implementation to use for outputting test progress and results.
+ * @param language The [[Language]] used for localizing messages from the [[I18n]] resource bundle.
+ * @param timeout The default timeout duration in seconds for individual tests, used when a test doesn't specify its own `timeoutOverride`.
+ * @author Pepe Gallardo & Gemini
  */
 case class Config(
   logger: Logger = AnsiConsoleLogger(),
@@ -16,15 +17,18 @@ case class Config(
 ):
   /**
    * Retrieves a localized message pattern for the given key and language,
-   * and formats it with the provided arguments.
+   * then formats it using the provided arguments.
    *
-   * @param key The localization key (e.g., "test.passed").
-   * @param args The arguments to substitute into the message pattern.
+   * It uses `java.lang.String.format` with the `ROOT` locale for consistent
+   * formatting behavior regardless of the system's default locale.
+   *
+   * @param key The key identifying the message pattern in the [[I18n]] resource bundle (e.g., "test.passed").
+   * @param args The arguments to be substituted into the message pattern placeholders (e.g., %s, %d).
    * @return The formatted, localized message string.
-   *         Returns an error string if formatting fails.
+   *         If a formatting error occurs (e.g., missing arguments), an error message string is returned.
    */
   def msg(key: String, args: Any*): String =
-    val pattern = I18n.getMessage(key, language)
+    val pattern = I18n.getMessage(key = key, language = language)
     if args.isEmpty then pattern
     else try {
       // Use ROOT locale for consistent formatting regardless of system locale
@@ -37,21 +41,25 @@ case class Config(
     }
 
 /**
- * Companion object for [[Config]].
- * Provides default configurations and convenience factories.
+ * Companion object for the [[Config]] case class.
+ * Provides a default configuration instance and factory methods for creating
+ * configurations with specific logging settings.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 object Config:
-  /** A default configuration instance (AnsiConsoleLogger, English, 3 seconds timeout). */
+  /** A default configuration using `AnsiConsoleLogger`, `English` language, and a 3-second timeout. */
   val Default: Config = Config()
 
   /**
-   * Creates a new Config instance based on an existing one, but with
-   * logging settings adjusted.
+   * Creates a new `Config` instance based on an existing one, but with potentially modified logging settings.
    *
-   * @param logging If false, uses `SilentLogger`. If true, uses ANSI or plain console logger.
-   * @param useAnsi If true and `logging` is true, uses `AnsiConsoleLogger`. Otherwise uses `ConsoleLogger`.
-   * @param baseConfig The configuration to base the new one on. Defaults to `Config.Default`.
-   * @return A new `Config` instance with the specified logging setup.
+   * @param logging If `false`, the logger is set to [[SilentLogger]], disabling all output.
+   *                If `true`, a console logger is used.
+   * @param useAnsi If `logging` is `true`, this determines whether to use [[AnsiConsoleLogger]] (if `true`)
+   *                or [[ConsoleLogger]] (if `false`).
+   * @param baseConfig The `Config` instance to use as a base. Defaults to [[Config.Default]].
+   * @return A new `Config` instance with the specified logger, inheriting other settings from `baseConfig`.
    */
   def withLogging(
     logging: Boolean,

@@ -3,202 +3,149 @@ package test.unit
 import scala.reflect.ClassTag
 
 /**
- * A test verifying that the evaluated expression throws a specific exception type `E`,
- * optionally checking for an exact message.
+ * Factory object for creating tests that verify an expression throws an exception
+ * of one *specific* type `E`. It optionally allows checking the thrown exception's
+ * message against an *exact* string.
  *
- * Extends [[ExceptionBy]] by providing specific predicates and description details.
+ * This object acts as a convenience wrapper around [[ExceptionOneOf]], simplifying
+ * the common case of expecting a single, specific exception type. It does not
+ * directly support message predicates (use `ExceptionOneOf` or `TestFactory` for that).
+ * There is no corresponding `Exception` class; this object only provides factory methods.
  *
- * @param name Test name.
- * @param toEvaluate The call-by-name expression expected to throw exception `E`.
- * @param mkString Function to convert `T` to String if no exception is thrown.
- * @param expectedExceptionClass The `Class` object for the expected exception type `E`.
- * @param expectedMessage Optional exact message the thrown exception must have. If `None`, message is not checked.
- * @param timeoutOverride Optional specific timeout duration (in seconds) for this test.
- * @tparam T The type of the expression result (if it didn't throw).
- * @tparam E The type of `Throwable` expected. Must have a `ClassTag`.
- * @author Pepe Gallardo
- */
-class Exception[T, E <: Throwable] private ( // Private constructor, use factory
-  override val name: String,
-  toEvaluate: => T,
-  mkString: T => String,
-  expectedExceptionClass: Class[E],
-  expectedMessage: Option[String],
-  override protected val timeoutOverride: Option[Int]
-) extends ExceptionBy[T](
-  name = name,
-  toEvaluate = toEvaluate,
-  mkString = mkString,
-  throwablePredicate = thrown => expectedExceptionClass.isInstance(thrown), // Predicate: must be instance of E
-  messagePredicate = msg => expectedMessage.forall(_ == msg), // Predicate: message must match if Some(expected)
-  helpKey = expectedMessage match { // Choose I18n key based on whether message is checked
-    case Some(_) => "exception.with.message.description" // "Exception %s with message %s"
-    case None => "exception.description" // "Exception %s"
-  },
-  helpArgs = { // Arguments for the chosen key (raw values, colored at runtime)
-    val typeName = expectedExceptionClass.getSimpleName
-    expectedMessage match {
-      case Some(msg) => Seq(typeName, s""""$msg"""") // Args: TypeName, "Message"
-      case None => Seq(typeName) // Arg: TypeName
-    }
-  },
-  timeoutOverride = timeoutOverride
-) {
-  // Inherits executeTest from ExceptionBy
-}
-
-/**
- * Companion object for the [[Exception]] test class.
- * Provides factory `apply` methods using `ClassTag` to obtain the `Class` object for `E`.
+ * @author Pepe Gallardo & Gemini
  */
 object Exception {
 
   /**
-   * Base factory for creating `Exception` tests.
+   * Base factory method for creating a test that expects a specific exception type `E`.
+   * It delegates the actual test creation to [[ExceptionOneOf]].
+   * Primarily designed for checking an optional *exact* message.
    *
-   * @param name Test name.
-   * @param toEvaluate Expression expected to throw `E`.
-   * @param mkString Function to convert `T` to String. Defaults to `_.toString`.
-   * @param expectedMessage Optional exact expected message. Defaults to `None` (message not checked).
-   * @param timeoutOverride Optional specific timeout in seconds. Defaults to `None`.
-   * @tparam T Type of expression result.
-   * @tparam E Type of `Throwable` expected (requires `ClassTag`).
-   * @return An `Exception[T, E]` test instance.
+   * @param name The name of the test.
+   * @param toEvaluate The code block expected to throw an exception of type `E`.
+   * @param mkString Function to convert result `T` to string if no exception is thrown. Defaults to `.toString`.
+   * @param expectedMessage If `Some(msg)`, requires the thrown exception's message to be exactly `msg`.
+   * @param timeoutOverride Optional specific timeout duration in seconds.
+   * @tparam T The return type of `toEvaluate`.
+   * @tparam E The specific exception type (`<: Throwable`) expected. Requires a `ClassTag`.
+   * @return An [[ExceptionOneOf]][T] test instance configured for the single type `E`.
    */
   def apply[T, E <: Throwable : ClassTag](
     name: String,
     toEvaluate: => T,
     mkString: T => String = (obj: T) => obj.toString,
-    expectedMessage: Option[String] = None,
+    expectedMessage: Option[String] = None, // Pass through exact message
     timeoutOverride: Option[Int] = None
-  ): Exception[T, E] = {
-    val expectedClass = implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]]
-    new Exception(name, toEvaluate, mkString, expectedClass, expectedMessage, timeoutOverride)
+  ): ExceptionOneOf[T] = { // Returns ExceptionOneOf directly
+    // Delegate to ExceptionOneOf's base factory, passing the single ClassTag for E
+    // Provide default predicate/help, which are effectively ignored if expectedMessage is Some
+    ExceptionOneOf[T](
+      name = name,
+      toEvaluate = toEvaluate,
+      mkString = mkString,
+      expectedMessage = expectedMessage, // Pass the exact message option
+      messagePredicate = (_: String) => true,  // Default predicate (ignored if exact message is present)
+      predicateHelp = None,            // Default predicate help (ignored)
+      timeoutOverride = timeoutOverride
+    )(implicitly[ClassTag[E]]) // Pass the single ClassTag for E as varargs
   }
 
-  // --- Convenience Overloads --- (Call constructor directly)
+  // --- Convenience Overloads (delegate to THIS object's base apply method) ---
 
-  /** Creates test expecting specific message (defaults: mkString, timeout). */
+  /**
+   * Creates a test expecting a specific exception type `E` with an *exact* message.
+   *
+   * @param name Test name.
+   * @param toEvaluate Code block expected to throw exception `E`.
+   * @param expectedMessage The exact required message of the thrown exception.
+   * @tparam T Return type of `toEvaluate`.
+   * @tparam E Specific expected exception type. Requires `ClassTag`.
+   * @return An [[ExceptionOneOf]][T] test instance.
+   */
   def apply[T, E <: Throwable : ClassTag](
     name: String,
     toEvaluate: => T,
-    expectedMessage: String
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString = (obj: T) => obj.toString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = Some(expectedMessage),
-      timeoutOverride = None
+    expectedMessage: String // Exact message overload
+  ): ExceptionOneOf[T] =
+    // Call this object's base apply, setting the exact message
+    apply(
+        name = name,
+        toEvaluate = toEvaluate,
+        mkString = (obj: T) => obj.toString, // Default
+        expectedMessage = Some(expectedMessage), // Set exact message
+        timeoutOverride = None // Default
     )
 
-  /** Creates test expecting specific type, no message check (defaults: mkString, timeout). */
+  /**
+   * Creates a test expecting a specific exception type `E` (any message).
+   *
+   * @param name Test name.
+   * @param toEvaluate Code block expected to throw exception `E`.
+   * @tparam T Return type of `toEvaluate`.
+   * @tparam E Specific expected exception type. Requires `ClassTag`.
+   * @return An [[ExceptionOneOf]][T] test instance.
+   */
   def apply[T, E <: Throwable : ClassTag](
     name: String,
-    toEvaluate: => T
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString = (obj: T) => obj.toString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = None,
-      timeoutOverride = None
-    )
+    toEvaluate: => T // Type only overload
+  ): ExceptionOneOf[T] =
+     // Call this object's base apply, with no message requirement
+     apply(
+        name = name,
+        toEvaluate = toEvaluate,
+        mkString = (obj: T) => obj.toString, // Default
+        expectedMessage = None, // No message requirement
+        timeoutOverride = None // Default
+     )
 
-  /** Creates test expecting specific type and message, with custom mkString (default: timeout). */
-  def apply[T, E <: Throwable : ClassTag](
-    name: String,
-    toEvaluate: => T,
-    mkString: T => String,
-    expectedMessage: String
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = Some(expectedMessage),
-      timeoutOverride = None
-    )
-
-  /** Creates test expecting specific type, no message check, with custom mkString (default: timeout). */
-  def apply[T, E <: Throwable : ClassTag](
-    name: String,
-    toEvaluate: => T,
-    mkString: T => String
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = None,
-      timeoutOverride = None
-    )
-
-  /** Creates test expecting specific type and message, with specific timeout (default: mkString). */
+  /**
+   * Creates a test expecting a specific exception type `E`, an *exact* message, and a specific timeout.
+   *
+   * @param name Test name.
+   * @param toEvaluate Code block expected to throw exception `E`.
+   * @param expectedMessage The exact required message of the thrown exception.
+   * @param timeoutOverride Specific timeout duration in seconds.
+   * @tparam T Return type of `toEvaluate`.
+   * @tparam E Specific expected exception type. Requires `ClassTag`.
+   * @return An [[ExceptionOneOf]][T] test instance.
+   */
   def apply[T, E <: Throwable : ClassTag](
     name: String,
     toEvaluate: => T,
     expectedMessage: String,
     timeoutOverride: Int
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString = (obj: T) => obj.toString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = Some(expectedMessage),
-      timeoutOverride = Some(timeoutOverride)
+  ): ExceptionOneOf[T] =
+    // Call this object's base apply, setting message and timeout
+    apply(
+        name = name,
+        toEvaluate = toEvaluate,
+        mkString = (obj: T) => obj.toString, // Default
+        expectedMessage = Some(expectedMessage), // Set exact message
+        timeoutOverride = Some(timeoutOverride) // Set timeout
     )
 
-  /** Creates test expecting specific type, no message check, with specific timeout (default: mkString). */
+  /**
+   * Creates a test expecting a specific exception type `E` (any message) and a specific timeout.
+   *
+   * @param name Test name.
+   * @param toEvaluate Code block expected to throw exception `E`.
+   * @param timeoutOverride Specific timeout duration in seconds.
+   * @tparam T Return type of `toEvaluate`.
+   * @tparam E Specific expected exception type. Requires `ClassTag`.
+   * @return An [[ExceptionOneOf]][T] test instance.
+   */
   def apply[T, E <: Throwable : ClassTag](
     name: String,
     toEvaluate: => T,
     timeoutOverride: Int
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString = (obj: T) => obj.toString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = None,
-      timeoutOverride = Some(timeoutOverride)
-    )
+  ): ExceptionOneOf[T] =
+     // Call this object's base apply, setting only timeout
+     apply(
+        name = name,
+        toEvaluate = toEvaluate,
+        mkString = (obj: T) => obj.toString, // Default
+        expectedMessage = None, // No message requirement
+        timeoutOverride = Some(timeoutOverride) // Set timeout
+     )
 
-  /** Creates test expecting specific type and message, with custom mkString and specific timeout. */
-  def apply[T, E <: Throwable : ClassTag](
-    name: String,
-    toEvaluate: => T,
-    mkString: T => String,
-    expectedMessage: String,
-    timeoutOverride: Int
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = Some(expectedMessage),
-      timeoutOverride = Some(timeoutOverride)
-    )
-
-  /** Creates test expecting specific type, no message check, with custom mkString and specific timeout. */
-  def apply[T, E <: Throwable : ClassTag](
-    name: String,
-    toEvaluate: => T,
-    mkString: T => String,
-    timeoutOverride: Int
-  ): Exception[T, E] =
-    new Exception(
-      name,
-      toEvaluate,
-      mkString,
-      implicitly[ClassTag[E]].runtimeClass.asInstanceOf[Class[E]],
-      expectedMessage = None,
-      timeoutOverride = Some(timeoutOverride)
-    )
 }

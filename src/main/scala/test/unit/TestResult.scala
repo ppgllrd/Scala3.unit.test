@@ -1,197 +1,204 @@
 package test.unit
 
 /**
- * Represents the outcome of a single test execution.
- * This is a sealed trait, with specific case classes for Success and various Failure types.
+ * Represents the possible outcomes of executing a [[Test]].
+ * This is a sealed trait with case classes/objects for specific results
+ * like success, various types of failures (equality, property, exception-related, timeout), etc.
+ *
+ * The `message` method provides a localized and potentially colored description
+ * of the outcome, requiring an implicit [[Config]] for formatting.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 sealed trait TestResult:
-  /** Indicates whether the test execution was successful. */
+  /** Indicates whether this result represents a successful test execution. */
   def isSuccess: Boolean
 
   /**
-   * Generates a human-readable message describing the test outcome.
-   * Requires a `Config` implicitly to handle localization (language) and
-   * styling (coloring via the logger).
+   * Generates a formatted message describing the test outcome.
+   * Uses the implicit `config` for localization (via `config.msg`) and
+   * coloring (via `config.logger`).
    *
-   * @param config The configuration context for formatting the message.
-   * @return The formatted message string ready for display by a logger.
+   * @param config The implicit configuration context.
+   * @return A descriptive string message for this test result.
    */
   def message(using config: Config): String
 
-/** Companion object for [[TestResult]]. Contains specific result types. */
+/**
+ * Companion object for [[TestResult]]. Contains the specific case classes/objects
+ * representing the different possible outcomes of a test.
+ *
+ * @author Pepe Gallardo & Gemini
+ */
 object TestResult:
+
+  private def lowerCapitalize(str: String): String =
+    str.headOption.map(_.toLower + str.tail).getOrElse(str)
 
   /** Represents a successful test execution. */
   case class Success() extends TestResult:
     override def isSuccess: Boolean = true
-    /** Generates the "TEST PASSED" message, localized and colored. */
+    /** Returns a simple success message (e.g., "TEST PASSED SUCCESSFULLY!"). */
     override def message(using config: Config): String =
-      val logger = config.logger
-      // Indent the message slightly for better alignment
+      val logger = config.logger // For coloring
+      // Indented, bold, green "PASSED" message from I18n
       s"""
-         |   ${logger.bold(logger.green(config.msg("passed")))}""".stripMargin 
-  // lines if used alone
+         |   ${logger.bold(logger.green(config.msg("passed")))}""".stripMargin
 
-  /** Base trait for all test failure types. */
+  /** Base trait for all failure results. */
   sealed trait Failure extends TestResult:
     override def isSuccess: Boolean = false
-
-    /** Helper to get the standard "TEST FAILED!" marker, localized and colored. */
+    /** Helper to get the standard "FAILED!" marker, localized and colored red/bold. */
     protected def failedMarker(using config: Config): String =
-      val logger = config.logger
-      logger.bold(logger.red(config.msg("failed")))
+      config.logger.bold(config.logger.red(config.msg("failed")))
 
-  /**
-   * Failure: The evaluated result did not satisfy the expected property.
-   * Used by [[Property]], [[Assert]], [[Refute]].
-   *
-   * @param result The actual result obtained from the evaluation.
-   * @param mkString A function (provided by the test runner context) to convert the `result` to a String,
-   *                 respecting the configuration (e.g., using localized keys for Assert/Refute).
-   * @param propertyDescription The pre-formatted string (generated using Config during test execution)
-   *                            describing the property that failed (e.g., "Does not verify property: should be true").
-   * @tparam T The type of the result evaluated.
-   */
-  case class PropertyFailure[T](result: T, mkString: T => String, propertyDescription: String) extends Failure:
-    /** Generates failure message including the property description and obtained result. */
+  /** Failure because a property predicate returned `false`. */
+  case class PropertyFailure[T](
+    result: T, // The actual result obtained from evaluation
+    mkString: T => String, // Function to format the result T to String
+    propertyDescription: String // Pre-formatted description of the expected property
+  ) extends Failure:
+    /** Formats a message including the failure marker, property description, and the obtained result. */
     override def message(using config: Config): String =
       val logger = config.logger
+      // Format the obtained result (colored red) using the provided mkString function
+      val obtainedMsg = config.msg("obtained.result", logger.red(mkString(result)))
       s"""
          |   $failedMarker
          |   $propertyDescription
-         |   ${config.msg("obtained", logger.red(mkString(result)))}""".stripMargin // Format and color obtained
-  // value
+         |   $obtainedMsg""".stripMargin
 
-  /**
-   * Failure: The actual result was not equal to the expected result.
-   * Used by [[EqualBy]], [[Equal]].
-   *
-   * @param expected The expected result.
-   * @param actual The actual result obtained.
-   * @param mkString Function to convert expected and actual results to Strings.
-   * @tparam T The type of the expected and actual results.
-   */
-  case class EqualityFailure[T](expected: T, actual: T, mkString: T => String) extends Failure:
-    /** Generates failure message showing expected and obtained results. */
+  /** Failure because the actual result was not equal to the expected value (using `==` or custom `equalsFn`). */
+  case class EqualityFailure[T](
+    expected: T, // The expected value
+    actual: T, // The actual result obtained
+    mkString: T => String // Function to format T values to String
+  ) extends Failure:
+     /** Formats a message showing the failure marker, expected value (green), and obtained value (red). */
     override def message(using config: Config): String =
       val logger = config.logger
+      // Format expected (green) and actual (red) values
+      val expectedMsg = config.msg("expected.result", logger.green(mkString(expected)))
+      val obtainedMsg = config.msg("obtained.result", logger.red(mkString(actual)))
       s"""
          |   $failedMarker
-         |   ${config.msg("expected", logger.green(mkString(expected)))}
-         |   ${config.msg("obtained", logger.red(mkString(actual)))}""".stripMargin
+         |   $expectedMsg
+         |   $obtainedMsg""".stripMargin
 
-  /**
-   * Failure: An exception was expected, but none was thrown.
-   * Used by [[ExceptionBy]] and subclasses.
-   *
-   * @param result The value that was returned instead of an exception.
-   * @param mkString Function to convert the unexpected `result` to a String.
-   * @param expectedExceptionDescription A description (already formatted using Config during execution)
-   *                                     of the exception that was expected (e.g., "RuntimeException", "Any exception except NullPointerException").
-   * @tparam T The type of the result that was unexpectedly returned.
-   */
-  case class NoExceptionFailure[T](result: T, mkString: T => String, expectedExceptionDescription: String) extends Failure:
-    /** Generates failure message indicating no exception was thrown. */
+  /** Failure because an exception was expected, but none was thrown. */
+  case class NoExceptionFailure[T](
+    result: T, // The value returned instead of an exception
+    mkString: T => String, // Function to format the result T to String
+    expectedExceptionDescription: String // Pre-formatted description of the expected exception scenario
+  ) extends Failure:
+    /** Formats a message indicating no exception was thrown, including the expected scenario and the obtained result. */
     override def message(using config: Config): String =
       val logger = config.logger
+      // Format the obtained result (red)
+      val obtainedMsg = config.msg("obtained.result", logger.red(mkString(result)))
+      // Get the base "no exception" message, including the expected description
+      val baseMsg = config.msg("no.exception.basic", expectedExceptionDescription)
       s"""
          |   $failedMarker
-         |   ${config.msg("no.exception.basic", logger.green(expectedExceptionDescription))}
-         |   ${config.msg("obtained", logger.red(mkString(result)))}""".stripMargin
+         |   $baseMsg
+         |   $obtainedMsg""".stripMargin
 
-  /**
-   * Failure: An exception was thrown, but it was of the wrong type or did not satisfy the type predicate.
-   * Used by [[ExceptionBy]] and subclasses.
-   *
-   * @param thrown The `Throwable` that was actually thrown.
-   * @param expectedExceptionDescription A description (already formatted) of the exception criteria that were expected.
-   */
-  case class WrongExceptionTypeFailure(thrown: Throwable, expectedExceptionDescription: String) extends Failure:
-    /** Generates failure message indicating the wrong exception type was thrown. */
+  /** Failure because an exception was thrown, but it was of the wrong type. */
+  case class WrongExceptionTypeFailure(
+    thrown: Throwable, // The actual exception that was thrown
+    expectedExceptionDescription: String // Pre-formatted description of the expected exception scenario
+  ) extends Failure:
+     /** Formats a message showing the actual exception type (red) and the expected scenario. */
     override def message(using config: Config): String =
       val logger = config.logger
-      val thrownName = logger.red(thrown.getClass.getSimpleName) // Color the actual thrown type red
-      s"""
-         |   $failedMarker
-         |   ${config.msg("wrong.exception.type.basic", thrownName)}
-         |   ${config.msg("but.expected", logger.green(expectedExceptionDescription))}""".stripMargin // Color expected green
-
-  /**
-   * Failure: An exception of the expected type was thrown, but its message did not match
-   * the expectation (either wrong exact message or failed message predicate).
-   * Used by [[ExceptionBy]] and subclasses.
-   *
-   * @param thrown The `Throwable` that was thrown (correct type, wrong message).
-   * @param expectedExceptionDescription A description (already formatted) of the exception criteria, including the expected message details.
-   */
-  case class WrongExceptionMessageFailure(thrown: Throwable, expectedExceptionDescription: String) extends Failure:
-    /** Generates failure message indicating the message was wrong. */
-    override def message(using config: Config): String =
-      val logger = config.logger
-      val thrownName = logger.green(thrown.getClass.getSimpleName) // Correct type is green
-      val thrownMsg = Option(thrown.getMessage).getOrElse("null")
-      val actualMsgStr = logger.red(s""""$thrownMsg"""") // Wrong message is red
-
-      s"""
-         |   $failedMarker
-         |   ${config.msg("wrong.exception.message.basic", thrownName, actualMsgStr)}
-         |   ${config.msg("but.expected", logger.green(expectedExceptionDescription))}""".stripMargin
-
-  /**
-   * Failure: An exception was thrown, but *both* its type and message were wrong.
-   * Used by [[ExceptionBy]] and subclasses when both predicates fail.
-   *
-   * @param thrown The `Throwable` that was thrown (wrong type and message).
-   * @param expectedExceptionDescription A description (already formatted) of the exception criteria (type and message).
-   */
-  case class WrongExceptionAndMessageFailure(thrown: Throwable, expectedExceptionDescription: String) extends Failure:
-    /** Generates failure message indicating both type and message were wrong. */
-    override def message(using config: Config): String =
-      val logger = config.logger
-      val thrownName = logger.red(thrown.getClass.getSimpleName) // Wrong type is red
-      val thrownMsg = Option(thrown.getMessage).getOrElse("null")
-      val actualMsgStr = logger.red(s""""$thrownMsg"""") // Wrong message is red
-
-      s"""
-         |   $failedMarker
-         |   ${config.msg("wrong.exception.and.message.basic", thrownName, actualMsgStr)}
-         |   ${config.msg("but.expected", logger.green(expectedExceptionDescription))}""".stripMargin
-
-  /**
-   * Failure: The test execution exceeded the allowed timeout duration.
-   *
-   * @param timeout The timeout duration in seconds that was exceeded.
-   * @param expectedBehaviorDescription A description (already formatted) of what the test was expected to achieve
-   *                                   (e.g., "Expected: 5", "Property: must be positive", "Exception: FooException").
-   */
-  case class TimeoutFailure(timeout: Int, expectedBehaviorDescription: String) extends Failure:
-    /** Generates failure message indicating a timeout occurred. */
-    override def message(using config: Config): String =
-      // The 'timeout' message key already includes the description placeholder %1$s
-      s"""
-         |   $failedMarker
-         |   ${config.msg("timeout", expectedBehaviorDescription, timeout)}""".stripMargin
-
-  /**
-   * Failure: An unexpected exception was thrown during test execution.
-   * This applies to exceptions caught outside the core evaluation logic (e.g., in Future handling)
-   * or exceptions thrown by tests not designed to catch them (like `Equal`, `Property`).
-   *
-   * @param thrown The unexpected `Throwable`.
-   * @param originalExpectationDescription A description (already formatted) of what the test was *originally*
-   *                                       trying to achieve before the unexpected exception occurred.
-   */
-  case class UnexpectedExceptionFailure(thrown: Throwable, originalExpectationDescription: String) extends Failure:
-    /** Generates failure message reporting the unexpected exception. */
-    override def message(using config: Config): String =
-      val logger = config.logger
+      // Get actual exception type name (red)
       val thrownName = logger.red(thrown.getClass.getSimpleName)
+      // Basic message indicating wrong type thrown
+      val wrongTypeMsg = config.msg("wrong.exception.type.basic", thrownName)
+      // Message indicating what was expected instead
+      val butExpectedMsg = config.msg("but.expected", lowerCapitalize(expectedExceptionDescription))
+      s"""
+         |   $failedMarker
+         |   $wrongTypeMsg
+         |   $butExpectedMsg""".stripMargin
+
+  /** Failure because the correct type of exception was thrown, but its message did not match expectations. */
+  case class WrongExceptionMessageFailure(
+    thrown: Throwable, // The actual exception (correct type, wrong message)
+    expectedExceptionDescription: String, // Pre-formatted overall description of the expected scenario (includes type)
+    detailedExpectation: Option[String] // Pre-formatted detail about *why* the message failed (e.g., expected exact "X", or predicate "Y")
+  ) extends Failure:
+    /** Formats a message showing the thrown exception type (green), the actual message (red), and the detailed expectation for the message. */
+    override def message(using config: Config): String =
+      val logger = config.logger
+      // Get thrown type name (green, because type was correct)
+      val thrownName = logger.green(thrown.getClass.getSimpleName)
+      // Get actual message, handle null, format as red quoted string
       val thrownMsg = Option(thrown.getMessage).getOrElse("null")
       val actualMsgStr = logger.red(s""""$thrownMsg"""")
-      // The 'unexpected.exception' key includes placeholder %1$s for the original expectation
+      // Basic message indicating correct type but wrong message
+      val wrongMsgBasic = config.msg("wrong.exception.message.basic", thrownName, actualMsgStr)
+      // Get the specific reason for message failure, or a fallback if not provided
+      val detailPart = detailedExpectation.getOrElse("(Reason for message failure not specified)")
       s"""
          |   $failedMarker
-         |   ${config.msg("unexpected.exception",
-        originalExpectationDescription, // What was the test trying to do?
-        thrownName,                     // What exception occurred?
-        actualMsgStr)}""".stripMargin // What was its message?
+         |   $wrongMsgBasic
+         |   $detailPart""".stripMargin // Appends the detailed reason
+
+  /** Failure because both the type and the message of the thrown exception were incorrect. */
+  case class WrongExceptionAndMessageFailure(
+    thrown: Throwable, // The actual exception (wrong type and message)
+    expectedExceptionDescription: String // Pre-formatted description of the expected scenario
+  ) extends Failure:
+     /** Formats a message showing the actual exception type and message (both red) and the expected scenario. */
+    override def message(using config: Config): String =
+      val logger = config.logger
+       // Get actual type name (red)
+      val thrownName = logger.red(thrown.getClass.getSimpleName)
+      // Get actual message, handle null, format as red quoted string
+      val thrownMsg = Option(thrown.getMessage).getOrElse("null")
+      val actualMsgStr = logger.red(s""""$thrownMsg"""")
+      // Basic message indicating wrong type and message thrown
+      val wrongAllMsg = config.msg("wrong.exception.and.message.basic", thrownName, actualMsgStr)
+       // Message indicating what was expected instead
+      val butExpectedMsg = config.msg("but.expected", lowerCapitalize(expectedExceptionDescription))
+      s"""
+         |   $failedMarker
+         |   $wrongAllMsg
+         |   $butExpectedMsg""".stripMargin
+
+  /** Failure because the test execution exceeded the allowed time limit. */
+  case class TimeoutFailure(
+    timeout: Int, // The timeout duration in seconds that was exceeded
+    expectedBehaviorDescription: String // Pre-formatted description of what the test was expected to do
+  ) extends Failure:
+    /**
+     * Formats a timeout failure message.
+     * It uses the I18n key "timeout" which expects the description and the duration.
+     * Example: "[FAILED!] [Expected description] was expected\n   Timeout: test took more than [timeout] seconds to complete"
+     */
+    override def message(using config: Config): String =
+      // Use the specific I18n key "timeout", passing the expected behavior and duration
+      val timeoutMsg = config.msg("timeout", expectedBehaviorDescription, timeout)
+      s"""
+         |   $failedMarker
+         |   $timeoutMsg""".stripMargin // Combine marker and formatted timeout message
+
+  /** Failure due to an unexpected exception occurring during test execution (not the one being tested for, if any). */
+  case class UnexpectedExceptionFailure(
+    thrown: Throwable, // The unexpected exception that was caught
+    originalExpectationDescription: String // Pre-formatted description of what the test was originally trying to achieve
+  ) extends Failure:
+    /** Formats a message showing the failure marker, the original expectation, and details of the unexpected exception (type and message, both red). */
+    override def message(using config: Config): String =
+      val logger = config.logger
+      // Get unexpected exception type name (red)
+      val thrownName = logger.red(thrown.getClass.getSimpleName)
+      // Get unexpected exception message, handle null, format as red quoted string
+      val thrownMsg = Option(thrown.getMessage).getOrElse("null")
+      val actualMsgStr = logger.red(s""""$thrownMsg"""")
+      // Construct the message using the "unexpected.exception" key
+      val unexpectedMsg = config.msg("unexpected.exception", originalExpectationDescription, thrownName, actualMsgStr)
+      s"""
+         |   $failedMarker
+         |   $unexpectedMsg""".stripMargin

@@ -1,13 +1,13 @@
 package test.unit
 
 /**
- * A test verifying that a boolean expression evaluates to `true`.
+ * A specific type of test that verifies a boolean expression evaluates to `true`.
+ * It is implemented as a specialized [[Property]] test.
  *
- * @param name The name of the test.
- * @param toEvaluate The call-by-name boolean expression to evaluate.
- * @param timeoutOverride Optional specific timeout duration (in seconds) for this test,
- *                        overriding the default from `Config`.
- * @author Pepe Gallardo
+ * @param name The descriptive name of the test case.
+ * @param toEvaluate The call-by-name boolean expression to be evaluated. Its result must be `true` for the test to pass.
+ * @param timeoutOverride An optional duration in seconds to override the default timeout specified in the [[Config]].
+ * @author Pepe Gallardo & Gemini
  */
 class Assert(
   override val name: String,
@@ -16,48 +16,58 @@ class Assert(
 ) extends Property[Boolean](
   name = name,
   toEvaluate = toEvaluate,
-  property = x => x, // The property is that the value must be true
-  mkString = None, // Don't provide direct mkString function
-  mkStringKey = Some(v => s"property.was.$v"), // Key pattern for mkString
-  help = None, // Don't provide direct help string
-  helpKey = Some("property.must.be.true"), // Key for the help message
+  property = x => x, // The property being checked is simply that the value is true.
+  mkString = None, // Use key-based string formatting for boolean results.
+  mkStringKey = Some(v => s"property.was.$v"), // Provides keys like "property.was.true" or "property.was.false".
+  help = None, // Use key-based help message.
+  helpKey = Some("property.must.be.true"), // Provides the key for "property should be true".
   timeoutOverride = timeoutOverride
 ) {
-  // Inherits executeTest from Property
+  // Execution logic is inherited from the Property base class.
 }
 
 /**
- * Companion object for the [[Assert]] test class.
- * Provides factory `apply` methods for convenient test creation.
+ * Companion object for the [[Assert]] class.
+ * Provides factory `apply` methods for convenient creation of `Assert` tests.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 object Assert {
   /**
-   * Creates an Assert test with an optional timeout override.
+   * Creates an `Assert` test instance.
    *
-   * @param name Test name.
-   * @param toEvaluate Boolean expression to evaluate (must be true).
-   * @param timeoutOverride Optional specific timeout in seconds.
-   * @return An `Assert` test instance.
+   * @param name The descriptive name of the test case.
+   * @param toEvaluate The call-by-name boolean expression. Must evaluate to `true` to pass.
+   * @param timeoutOverride Optional duration in seconds to override the default timeout.
+   * @return An [[Assert]] test instance.
    */
   def apply(
     name: String,
     toEvaluate: => Boolean,
     timeoutOverride: Option[Int] = None
   ): Assert =
-    new Assert(name, toEvaluate, timeoutOverride)
+    new Assert(
+        name = name,
+        toEvaluate = toEvaluate,
+        timeoutOverride = timeoutOverride
+    )
 
   /**
-   * Creates an Assert test with a specific timeout override.
+   * Creates an `Assert` test instance with a specific timeout override.
    *
-   * @param name Test name.
-   * @param toEvaluate Boolean expression to evaluate (must be true).
-   * @param timeoutOverride Specific timeout in seconds.
-   * @return An `Assert` test instance.
+   * @param name The descriptive name of the test case.
+   * @param toEvaluate The call-by-name boolean expression. Must evaluate to `true` to pass.
+   * @param timeoutOverride The specific timeout duration in seconds for this test.
+   * @return An [[Assert]] test instance.
    */
   def apply(
     name: String,
     toEvaluate: => Boolean,
     timeoutOverride: Int
   ): Assert =
-    new Assert(name, toEvaluate, Some(timeoutOverride))
+    new Assert(
+        name = name,
+        toEvaluate = toEvaluate,
+        timeoutOverride = Some(timeoutOverride)
+    )
 }

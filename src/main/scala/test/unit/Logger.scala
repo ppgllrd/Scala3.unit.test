@@ -1,92 +1,133 @@
 package test.unit
 
 /**
- * Trait defining the interface for logging test execution progress and results.
- * Implementations handle the actual output (e.g., console, file, silent).
- * Log methods require a `Config` implicitly to access localization and formatting preferences.
+ * Defines the interface for logging test execution progress and results.
+ * Implementations determine the destination and format of the output
+ * (e.g., console with/without color, silent).
+ *
+ * Logger methods typically require an implicit [[Config]] instance to access
+ * localization settings and formatting preferences (like color support).
+ *
+ * @author Pepe Gallardo & Gemini
  */
 trait Logger:
-  /** Indicates whether this logger supports ANSI color codes for styling output. */
+  /**
+   * Indicates whether this logger implementation supports rendering ANSI color codes.
+   * Used by [[Config]] and other components to conditionally apply colors.
+   *
+   * @return `true` if ANSI colors are supported and should be used, `false` otherwise.
+   */
   def supportsAnsiColors: Boolean
 
-  /** Convenience method to apply red color if supported. */
-  def red(text: String): String = AnsiColor.red(text, supportsAnsiColors)
-  /** Convenience method to apply green color if supported. */
-  def green(text: String): String = AnsiColor.green(text, supportsAnsiColors)
-  /** Convenience method to apply blue color if supported. */
-  def blue(text: String): String = AnsiColor.blue(text, supportsAnsiColors)
-  /** Convenience method to apply bold style if supported. */
-  def bold(text: String): String = AnsiColor.bold(text, supportsAnsiColors)
-  /** Convenience method to apply underline style if supported. */
-  def underline(text: String): String = AnsiColor.underline(text, supportsAnsiColors)
+  // --- Convenience methods for applying colors ---
+  // These delegate to AnsiColor, passing the logger's support flag.
 
-  /** Prints the given object without a newline. */
+  /** Applies red color to the text if ANSI colors are supported. */
+  def red(text: String): String = AnsiColor.red(text = text, enabled = supportsAnsiColors)
+  /** Applies green color to the text if ANSI colors are supported. */
+  def green(text: String): String = AnsiColor.green(text = text, enabled = supportsAnsiColors)
+  /** Applies blue color to the text if ANSI colors are supported. */
+  def blue(text: String): String = AnsiColor.blue(text = text, enabled = supportsAnsiColors)
+  /** Applies bold style to the text if ANSI colors are supported. */
+  def bold(text: String): String = AnsiColor.bold(text = text, enabled = supportsAnsiColors)
+  /** Applies underline style to the text if ANSI colors are supported. */
+  def underline(text: String): String = AnsiColor.underline(text = text, enabled = supportsAnsiColors)
+
+  // --- Core Logging Methods (to be implemented by subclasses) ---
+
+  /** Prints the string representation of the given object to the output destination without a trailing newline. */
   def print(any: Any): Unit
-  /** Prints the given object followed by a newline. */
+  /** Prints the string representation of the given object to the output destination followed by a trailing newline. */
   def println(any: Any): Unit
-  /** Prints a newline. */
+  /** Prints a newline character to the output destination. */
   def println(): Unit = println("") // Default implementation
 
   /**
-   * Logs the start of a test execution. Typically prints the test name.
-   * Requires `Config` implicitly for potential context-dependent formatting.
+   * Logs information indicating that a specific test is about to start execution.
+   * Typically includes printing the test name.
+   *
    * @param testName The name of the test being started.
-   * @param config The configuration context for this run.
+   * @param config The configuration context for the current test run (used for potential formatting).
    */
   def logStart(testName: String)(using config: Config): Unit
 
   /**
-   * Logs the result of a completed test execution.
-   * Requires `Config` implicitly to format the result message correctly
-   * using the appropriate language and color settings.
-   * @param result The `TestResult` object containing the outcome.
-   * @param config The configuration context for this run.
+   * Logs the final result of a completed test execution.
+   * Implementations should use the provided `config` to format the `result`'s
+   * message appropriately (handling localization and colors).
+   *
+   * @param result The [[TestResult]] object containing the outcome and details of the test.
+   * @param config The configuration context for the current test run.
    */
   def logResult(result: TestResult)(using config: Config): Unit
 
-  /** Ensures any buffered output is written to the destination. */
+  /**
+   * Ensures that any buffered output is written to the underlying destination (e.g., flushing a console stream).
+   */
   def flush(): Unit
 
 // --- Concrete Logger Implementations ---
 
 /**
- * A logger that prints output to the standard console without ANSI colors.
+ * A [[Logger]] implementation that prints output to the standard console
+ * (System.out) *without* using ANSI color codes.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 class ConsoleLogger extends Logger:
+  /** ANSI colors are not supported by this logger. */
   override def supportsAnsiColors: Boolean = false
 
+  /** Prints to `System.out` without a newline. */
   def print(any: Any): Unit = System.out.print(any)
+  /** Prints to `System.out` with a newline. */
   def println(any: Any): Unit = System.out.println(any)
 
-  /** Logs the test name followed by a colon and space. */
+  /** Logs the test name followed by ": ". */
   def logStart(testName: String)(using config: Config): Unit = {
-    print(s"$testName: ")
+    print(s"$testName: ") // Simple prefix before result
   }
 
-  /** Logs the formatted message from the TestResult. */
+  /** Logs the formatted message obtained from `result.message`. */
   def logResult(result: TestResult)(using config: Config): Unit = {
-    // result.message() uses the implicit config for formatting
+    // The result.message method uses the implicit config for localization and formatting (without color here)
     println(result.message)
   }
 
+  /** Flushes `System.out`. */
   def flush(): Unit = System.out.flush()
 
 /**
- * A logger that prints output to the standard console *with* ANSI colors.
- * Extends [[ConsoleLogger]].
+ * A [[Logger]] implementation that prints output to the standard console
+ * (System.out) *with* ANSI color codes enabled.
+ * It inherits basic printing logic from [[ConsoleLogger]].
+ *
+ * @author Pepe Gallardo & Gemini
  */
 class AnsiConsoleLogger extends ConsoleLogger:
+  /** ANSI colors are supported by this logger. */
   override def supportsAnsiColors: Boolean = true
-  // Inherits print, println, logStart, logResult, flush
+  // Inherits print, println, logStart, logResult, flush from ConsoleLogger
+  // The color methods (red, green, etc.) will now apply colors.
+  // The result.message formatting will include colors when called with a config using this logger.
 
 /**
- * A logger that produces no output. Useful for disabling logging.
+ * A [[Logger]] implementation that produces no output. Useful for suppressing
+ * test logging entirely.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 class SilentLogger extends Logger:
+  /** ANSI colors are not supported (as there's no output). */
   override def supportsAnsiColors: Boolean = false
 
-  def print(any: Any): Unit = {}
-  def println(any: Any): Unit = {}
-  def logStart(testName: String)(using config: Config): Unit = {}
-  def logResult(result: TestResult)(using config: Config): Unit = {}
-  def flush(): Unit = {}
+  /** Does nothing. */
+  def print(any: Any): Unit = ()
+  /** Does nothing. */
+  def println(any: Any): Unit = ()
+  /** Does nothing. */
+  def logStart(testName: String)(using config: Config): Unit = ()
+  /** Does nothing. */
+  def logResult(result: TestResult)(using config: Config): Unit = ()
+  /** Does nothing. */
+  def flush(): Unit = ()

@@ -1,8 +1,5 @@
 import test.unit.{Config, TestFactory, TestSuite} // Still need Config
 
-// Define your configuration (or use Config.Default)
-given config: Config = Config.Default.copy(language = test.unit.Language.English)
-// Or: given config: Config = Config.Default
 
 // Create tests using the factory methods
 val eqTest = TestFactory.equal("Addition", 1 + 1, 2)
@@ -28,5 +25,10 @@ val exExceptTest = TestFactory.expectExceptionExcept[Nothing, NullPointerExcepti
 // Then use these tests in a TestSuite
 // TestSuite("My Tests", eqTest, propTest, assertTest, exTest, exExceptTest).run() // runAll requires explicit config now
 @main def main(): Unit =
+  // Define your configuration (or use Config.Default)
+  given config: Config = Config.Default.copy(language = test.unit.Language.English)
+  // Or: given config: Config = Config.Default
+
+
   // Run all tests in a suite
-  TestSuite.runAll(config, TestSuite("My Tests", eqTest, propTest, assertTest, exTest, exExceptTest))
+  TestSuite.runAll(TestSuite("My Tests", eqTest, propTest, assertTest, exTest, exExceptTest))(using config) 

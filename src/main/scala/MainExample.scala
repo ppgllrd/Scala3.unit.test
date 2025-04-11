@@ -141,7 +141,7 @@ object MainExample:
     println("Running tests with English configuration...")
     // Run the suite(s) - runAll requires the config explicitly
     // The results object and summary will use the English messages from the config
-    TestSuite.runAll(config, mainSuite)
+    TestSuite.runAll(mainSuite)(using config)
 
     println("\n" + "="*50 + "\n")
 
@@ -151,7 +151,7 @@ object MainExample:
     val silentConfig: Config = englishConfig.copy(logger = SilentLogger())
     // Recreate suite or use existing tests; pass the new config to runAll
     // We'll run the same suite definition but the output will be suppressed
-    val resultsSilent = TestSuite.runAll(silentConfig, mainSuite)
+    val resultsSilent = TestSuite.runAll(mainSuite)(using silentConfig)
     println(s"(Silent run completed with ${resultsSilent.head.getPassed}/${resultsSilent.head.getTotal} passed)")
 
 

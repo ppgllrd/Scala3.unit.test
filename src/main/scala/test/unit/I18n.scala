@@ -1,68 +1,91 @@
 package test.unit
 
 /**
- * Handles internationalization (i18n) by providing localized message patterns.
- * Used by [[Config.msg]] to retrieve language-specific strings.
+ * Provides internationalization (I18n) support by storing and retrieving
+ * localized message strings based on a key and a [[Language]].
+ * Used by [[Config.msg]] to format messages for test output.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 object I18n:
-  // Stores message patterns keyed by Language, then by message key.
+  /** Internal storage mapping Language -> (Message Key -> Message Pattern). */
   private val messages: Map[Language, Map[String, String]] = Map(
     Language.English -> Map(
+      "but.expected" -> "But %s was expected", // Used for wrong type/message failures
+      // --- Timeout Key ---
+      // %1$s = Description of the overall expectation (e.g., "the exception IOException", "result to be 5")
+      // %2$d = Timeout duration in seconds
+      "timeout" -> "%s\n   Timeout: test took more than %d seconds to complete",
+      // --- Other Keys ---
+      "unexpected.exception" -> "%s\n   Raised unexpected exception %s with message %s", // %1$=original expectation, %2$=thrown type, %3$=thrown message
+      "connector.or" -> " or ",
       "failed" -> "TEST FAILED!",
       "passed" -> "TEST PASSED SUCCESSFULLY!",
-      "property.failure" -> "Does not verify expected property%s",  // %s for optional help detail (e.g., ": must be positive")
-      "property.must.be.true" -> "property should be true",         // Used in Assert help message generation
-      "property.must.be.false" -> "property should be false",       // Used in Refute help message generation
-      "property.was.true" -> "property was true",                   // Used in Assert/Refute mkString generation
-      "property.was.false" -> "property was false",                 // Used in Assert/Refute mkString generation
-      "expected" -> "Expected result was: %s",                      // Used in EqualityFailure message, EqualBy description
-      "obtained" -> "Obtained result was: %s",                      // Used in EqualityFailure, PropertyFailure, NoExceptionFailure messages
-      // --- Exception Failure Message Keys ---
-      "no.exception.basic" -> "Expected exception but none was thrown. The expected exception was %s", // %s is the colored expected description
-      "wrong.exception.type.basic" -> "Test threw exception %s",    // %s is the colored thrown type name
-      "wrong.exception.message.basic" -> "Test threw expected exception %s but message was %s", // %1$s colored thrown type, %2$s colored thrown message
-      "wrong.exception.and.message.basic" -> "Test threw exception %s with message %s", // %1$s colored thrown type, %2$s colored thrown message
-      "but.expected" -> "But %s was expected",                      // %s is the colored expected description (appended to wrong type/message failures)
-      // --- Exception Description Keys (used by ExceptionBy subclasses to build the 'formattedHelp' string) ---
-      "exception.description" -> "%s",                              // %s is the colored type name (e.g., "RuntimeException")
-      "exception.not.implemented.error" -> "NotImplementedError",   // Specific type name (can be overridden if needed, but good default)
-      "exception.except.description" -> "Any exception except %s",  // %s is the colored excluded type name (e.g., "Any exception except IOException")
-      "exception.with.message.description" -> "%s with message %s", // %1$s colored type, %2$s colored message (e.g., "IllegalArgumentException with message "Invalid value"")
-      // --- Other Message Keys ---
-      "timeout" -> "%s\n   Timeout: test took more than %d seconds to complete", // %1$s description of what was expected, %2$d seconds
-      "unexpected.exception" -> "%s\n   Raised unexpected exception %s with message %s", // %1$s description, %2$s colored thrown type, %3$s colored thrown message
-      "suite.for" -> "Tests for %s",                                // %s is suite name
+      "expected" -> "%s was expected", // %1$=expected value
+      "expected.result" -> "Expected result was: %s", // %1$=expected value
+      "obtained.result" -> "Obtained result was: %s", // %1$=actual value
+      "no.exception.basic" -> "Expected exception but none was thrown. %s was expected", // %1$=expected exception description
+      "wrong.exception.type.basic" -> "Test threw exception %s", // %1$=actual thrown type
+      "wrong.exception.message.basic" -> "Test threw expected exception type %s but message was %s", // %1$=expected type, %2$=actual message
+      "wrong.exception.and.message.basic" -> "Test threw exception %s with message %s", // %1$=actual type, %2$=actual message
+      "exception.description" -> "The exception %s", // %1$=type name(s)
+      "exception.with.message.description" -> "The exception %s with message %s", // %1$=type name(s), %2$=exact message
+      "exception.with.predicate.description" -> "The exception %s with message satisfying: %s", // %1$=type name(s), %2$=predicate help
+      "exception.oneof.description" -> "One of exceptions %s", // %1$=type name list
+      "exception.oneof.with.message.description" -> "One of exceptions %s with message %s", // %1$=type name list, %2$=exact message
+      "exception.oneof.with.predicate.description" -> "One of exceptions %s with message satisfying: %s", // %1$=type name list, %2$=predicate help
+      "exception.except.description" -> "Any exception except %s", // %1$=excluded type name
+      "exception.except.with.message.description" -> "Any exception except %s, with message %s", // %1$=excluded type name, %2$=exact message
+      "exception.except.with.predicate.description" -> "Any exception except %s, with message satisfying: %s",  // %1$=excluded type name, %2$=predicate help
+      "detail.expected_exact_message" -> "Expected message was %s", // %1$=exact message detail
+      "detail.expected_predicate" -> "Message should satisfy: %s", // %1$=predicate help detail
+      "property.failure.base" -> "Does not verify expected property", // Base message for property failures
+      "property.failure.suffix" -> ": %s", // Suffix added when property description is available, %1$=property description
+      "property.must.be.true" -> "property should be true", // Help text for Assert
+      "property.must.be.false" -> "property should be false", // Help text for Refute
+      "property.was.true" -> "property was true", // Result formatting for Assert/Refute failures
+      "property.was.false" -> "property was false", // Result formatting for Assert/Refute failures
+      "suite.for" -> "Tests for %s", // %1$=suite name
       "results.passed" -> "Passed",
       "results.failed" -> "Failed",
       "results.total" -> "Total",
-      "results.detail" -> "Detail", 
+      "results.detail" -> "Detail",
       "summary.tittle" -> "Overall Summary",
-      "summary.suites.run" -> "Suites run: %d",                     // %d is the number of suites
-      "summary.total.tests" -> "Total tests: %d",                   // %d is the number of tests
-      "summary.success.rate" -> "Success rate: %.2f%%"              // %.2f is the success rate percentage
+      "summary.suites.run" -> "Suites run: %d", // %1$=number of suites
+      "summary.total.tests" -> "Total tests: %d", // %1$=total tests
+      "summary.success.rate" -> "Success rate: %.2f%%" // %1$=success rate percentage
     ),
     Language.Spanish -> Map(
-      // ... (Spanish translations - same keys as English)
+      "but.expected" -> "Pero se esperaba %s",
+      "timeout" -> "%s\n   Tiempo excedido: la prueba tardó más de %d segundos en completarse",
+      "unexpected.exception" -> "%s\n   Se lanzó la excepción inesperada %s con mensaje %s",
+      "connector.or" -> " o ",
       "failed" -> "¡PRUEBA FALLIDA!",
       "passed" -> "¡PRUEBA SUPERADA CON ÉXITO!",
-      "property.failure" -> "No verifica la propiedad esperada%s",
+      "expected" -> "%s se esperaba",
+      "expected.result" -> "El resultado esperado era: %s",
+      "obtained.result" -> "El resultado obtenido fue: %s",
+      "no.exception.basic" -> "Se esperaba una excepción pero no se lanzó ninguna. %s se esperaba",
+      "wrong.exception.type.basic" -> "La prueba lanzó la excepción %s",
+      "wrong.exception.message.basic" -> "La prueba lanzó el tipo de excepción esperado %s pero con mensaje %s",
+      "wrong.exception.and.message.basic" -> "La prueba lanzó la excepción %s con mensaje %s",
+      "exception.description" -> "La excepción %s",
+      "exception.with.message.description" -> "La excepción %s con mensaje %s",
+      "exception.with.predicate.description" -> "La excepción %s con mensaje satisfaciendo: %s",
+      "exception.oneof.description" -> "Una de las excepciones %s",
+      "exception.oneof.with.message.description" -> "Una de las excepciones %s con mensaje %s",
+      "exception.oneof.with.predicate.description" -> "Una de las excepciones %s con mensaje satisfaciendo: %s",
+      "exception.except.description" -> "Cualquier excepción excepto %s",
+      "exception.except.with.message.description" -> "Cualquier excepción excepto %s, con mensaje %s",
+      "exception.except.with.predicate.description" -> "Cualquier excepción excepto %s, con mensaje satisfaciendo: %s",
+      "detail.expected_exact_message" -> "Se esperaba el mensaje %s",
+      "detail.expected_predicate" -> "Se esperaba un mensaje satisfaciendo: %s",
+      "property.failure.base" -> "No verifica la propiedad esperada",
+      "property.failure.suffix" -> ": %s",
       "property.must.be.true" -> "la propiedad debe ser verdadera",
       "property.must.be.false" -> "la propiedad debe ser falsa",
       "property.was.true" -> "la propiedad fue verdadera",
       "property.was.false" -> "la propiedad fue falsa",
-      "expected" -> "El resultado esperado era: %s",
-      "obtained" -> "El resultado obtenido fue: %s",
-      "no.exception.basic" -> "Se esperaba una excepción pero no se lanzó ninguna. La excepción esperada era %s",
-      "wrong.exception.type.basic" -> "La prueba lanzó la excepción %s",
-      "wrong.exception.message.basic" -> "La prueba lanzó la excepción esperada %s pero con mensaje %s",
-      "wrong.exception.and.message.basic" -> "La prueba lanzó la excepción %s con mensaje %s",
-      "but.expected" -> "Pero se esperaba %s",
-      "exception.description" -> "%s",
-      "exception.not.implemented.error" -> "NotImplementedError",
-      "exception.except.description" -> "Cualquier excepción excepto %s",
-      "exception.with.message.description" -> "%s con mensaje %s",
-      "timeout" -> "%s\n   Tiempo excedido: la prueba tardó más de %d segundos en completarse",
-      "unexpected.exception" -> "%s\n   Se lanzó la excepción inesperada %s con mensaje %s",
       "suite.for" -> "Pruebas para %s",
       "results.passed" -> "Superadas",
       "results.failed" -> "Fallidas",
@@ -71,30 +94,39 @@ object I18n:
       "summary.tittle" -> "Resumen General",
       "summary.suites.run" -> "Suites ejecutadas: %d",
       "summary.total.tests" -> "Total de pruebas: %d",
-      "summary.success.rate" -> "Tasa de éxito: %.2f%%" 
+      "summary.success.rate" -> "Tasa de éxito: %.2f%%"
     ),
     Language.French -> Map(
-      // ... (French translations - same keys as English)
+       "but.expected" -> "Mais %s était attendu",
+       "timeout" -> "%s\n   Délai dépassé: le test a mis plus de %d secondes à se terminer",
+       "unexpected.exception" -> "%s\n   L''exception inattendue %s a été levée avec le message %s",
+       "connector.or" -> " ou ",
        "failed" -> "ÉCHEC DU TEST!",
        "passed" -> "TEST RÉUSSI AVEC SUCCÈS!",
-       "property.failure" -> "Ne vérifie pas la propriété attendue%s",
+       "expected" -> "%s était attendu",
+       "expected.result" -> "Le résultat attendu était: %s",
+       "obtained.result" -> "Le résultat obtenu était: %s",
+       "no.exception.basic" -> "Exception attendue mais aucune n''a été lancée. %s était attendu",
+       "wrong.exception.type.basic" -> "Le test a lancé l''exception %s",
+       "wrong.exception.message.basic" -> "Le test a lancé le type d''exception attendu %s mais le message était %s",
+       "wrong.exception.and.message.basic" -> "Le test a lancé l''exception %s avec le message %s",
+       "exception.description" -> "L''exception %s",
+       "exception.with.message.description" -> "L''exception %s avec le message %s",
+       "exception.with.predicate.description" -> "L''exception %s avec message satisfaisant : %s",
+       "exception.oneof.description" -> "Une des exceptions %s",
+       "exception.oneof.with.message.description" -> "Une des exceptions %s avec le message %s",
+       "exception.oneof.with.predicate.description" -> "Une des exceptions %s avec message satisfaisant : %s",
+       "exception.except.description" -> "Toute exception sauf %s",
+       "exception.except.with.message.description" -> "Toute exception sauf %s, avec le message %s",
+       "exception.except.with.predicate.description" -> "Toute exception sauf %s, avec message satisfaisant : %s",
+       "detail.expected_exact_message" -> "Message attendu : %s",
+       "detail.expected_predicate" -> "Attendu message satisfaisant : %s",
+       "property.failure.base" -> "Ne vérifie pas la propriété attendue",
+       "property.failure.suffix" -> " : %s",
        "property.must.be.true" -> "la propriété doit être vraie",
        "property.must.be.false" -> "la propriété doit être fausse",
        "property.was.true" -> "la propriété était vraie",
        "property.was.false" -> "la propriété était fausse",
-       "obtained" -> "Le résultat obtenu était: %s",
-       "expected" -> "Le résultat attendu était: %s",
-       "no.exception.basic" -> "Exception attendue mais aucune n'a été lancée. L'exception attendue était %s",
-       "wrong.exception.type.basic" -> "Le test a lancé l'exception %s",
-       "wrong.exception.message.basic" -> "Le test a lancé l'exception attendue %s mais le message était %s",
-       "wrong.exception.and.message.basic" -> "Le test a lancé l'exception %s avec le message %s",
-       "but.expected" -> "Mais %s était attendu",
-       "exception.description" -> "%s",
-       "exception.not.implemented.error" -> "NotImplementedError",
-       "exception.except.description" -> "Toute exception sauf %s",
-       "exception.with.message.description" -> "%s avec le message %s",
-       "timeout" -> "%s\n   Délai dépassé: le test a mis plus de %d secondes à se terminer",
-       "unexpected.exception" -> "%s\n   L'exception inattendue %s a été levée avec le message %s",
        "suite.for" -> "Tests pour %s",
        "results.passed" -> "Réussis",
        "results.failed" -> "Échoués",
@@ -103,18 +135,21 @@ object I18n:
        "summary.tittle" -> "Résumé Général",
        "summary.suites.run" -> "Suites exécutées: %d",
        "summary.total.tests" -> "Total des tests: %d",
-       "summary.success.rate" -> "Taux de réussite: %.2f%%" 
-    )
+       "summary.success.rate" -> "Taux de réussite: %.2f%%"
+     )
   )
 
   /**
-   * Gets the localized message pattern for a given key and language.
-   * Falls back to English if the specified language or the key within that language is not found.
+   * Retrieves the message pattern associated with the given key for the specified language.
+   * If the key or language is not found, it falls back to English. If the key is still
+   * not found in English, the key itself is returned.
    *
-   * @param key The message key (e.g., "test.failed").
-   * @param language The desired [[Language]].
-   * @return The localized message pattern string. Returns the `key` itself if not found even in English.
+   * @param key The key identifying the desired message pattern.
+   * @param language The target [[Language]].
+   * @return The localized message pattern string, or the key if not found.
    */
   def getMessage(key: String, language: Language): String =
-    messages.getOrElse(language, messages(Language.English)).getOrElse(key, key) // Fallback chain: Specific Lang -> English -> Key
-
+    // Get the map for the requested language, falling back to English if not found.
+    val langMap = messages.getOrElse(language, messages(Language.English))
+    // Get the message for the key from the selected map, falling back to the key itself if not found.
+    langMap.getOrElse(key, key)

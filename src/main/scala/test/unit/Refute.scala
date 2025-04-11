@@ -1,13 +1,13 @@
 package test.unit
 
 /**
- * A test verifying that a boolean expression evaluates to `false`.
- * This is a specialized version of [[Property]] where the property is `!x`.
+ * A specific type of test that verifies a boolean expression evaluates to `false`.
+ * It is implemented as a specialized [[Property]] test where the property is `!x`.
  *
- * @param name The name of the test.
- * @param toEvaluate The call-by-name boolean expression to evaluate.
- * @param timeoutOverride Optional specific timeout duration (in seconds) for this test.
- * @author Pepe Gallardo
+ * @param name The descriptive name of the test case.
+ * @param toEvaluate The call-by-name boolean expression to be evaluated. Its result must be `false` for the test to pass.
+ * @param timeoutOverride An optional duration in seconds to override the default timeout specified in the [[Config]].
+ * @author Pepe Gallardo & Gemini
  */
 class Refute(
   override val name: String,
@@ -16,48 +16,58 @@ class Refute(
 ) extends Property[Boolean](
   name = name,
   toEvaluate = toEvaluate,
-  property = x => !x, // The property is that the value must be false
-  mkString = None, // Don't provide direct mkString function
-  mkStringKey = Some(v => s"property.was.$v"), // Provide key pattern: "property.was.true" or "property.was.false"
-  help = None, // Don't provide direct help string
-  helpKey = Some("property.must.be.false"), // Provide I18n key for "property should be false"
+  property = x => !x, // The property being checked is that the value is false.
+  mkString = None, // Use key-based string formatting for boolean results.
+  mkStringKey = Some(v => s"property.was.$v"), // Provides keys like "property.was.true" or "property.was.false".
+  help = None, // Use key-based help message.
+  helpKey = Some("property.must.be.false"), // Provides the key for "property should be false".
   timeoutOverride = timeoutOverride
 ) {
-  // Inherits executeTest from Property
+  // Execution logic is inherited from the Property base class.
 }
 
 /**
- * Companion object for the [[Refute]] test class.
- * Provides factory `apply` methods for convenient test creation.
+ * Companion object for the [[Refute]] class.
+ * Provides factory `apply` methods for convenient creation of `Refute` tests.
+ *
+ * @author Pepe Gallardo & Gemini
  */
 object Refute {
   /**
-   * Creates a Refute test with an optional timeout override.
+   * Creates a `Refute` test instance.
    *
-   * @param name Test name.
-   * @param toEvaluate Boolean expression to evaluate (must be false).
-   * @param timeoutOverride Optional specific timeout in seconds.
-   * @return A `Refute` test instance.
+   * @param name The descriptive name of the test case.
+   * @param toEvaluate The call-by-name boolean expression. Must evaluate to `false` to pass.
+   * @param timeoutOverride Optional duration in seconds to override the default timeout.
+   * @return A [[Refute]] test instance.
    */
   def apply(
     name: String,
     toEvaluate: => Boolean,
     timeoutOverride: Option[Int] = None
   ): Refute =
-    new Refute(name, toEvaluate, timeoutOverride) // Call constructor directly
+    new Refute( // Call constructor directly
+      name = name,
+      toEvaluate = toEvaluate,
+      timeoutOverride = timeoutOverride
+    )
 
   /**
-   * Creates a Refute test with a specific timeout override.
+   * Creates a `Refute` test instance with a specific timeout override.
    *
-   * @param name Test name.
-   * @param toEvaluate Boolean expression to evaluate (must be false).
-   * @param timeoutOverride Specific timeout in seconds.
-   * @return A `Refute` test instance.
+   * @param name The descriptive name of the test case.
+   * @param toEvaluate The call-by-name boolean expression. Must evaluate to `false` to pass.
+   * @param timeoutOverride The specific timeout duration in seconds for this test.
+   * @return A [[Refute]] test instance.
    */
   def apply(
     name: String,
     toEvaluate: => Boolean,
     timeoutOverride: Int
   ): Refute =
-    new Refute(name, toEvaluate, Some(timeoutOverride)) // Call constructor directly
+    new Refute( // Call constructor directly
+      name = name,
+      toEvaluate = toEvaluate,
+      timeoutOverride = Some(timeoutOverride) // Wrap Int in Some
+    )
 }

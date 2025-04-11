@@ -1,13 +1,15 @@
 package test.unit
 
 /**
- * Represents the supported languages for localization of test messages.
- * Used in [[Config]] and [[I18n]].
+ * Enumerates the supported languages for the localization of test messages
+ * used by [[I18n]] and configured via [[Config]].
+ *
+ * @author Pepe Gallardo & Gemini
  */
 enum Language:
-  /** English language. */
+  /** Represents the English language. */
   case English
-  /** Spanish language. */
+  /** Represents the Spanish language. */
   case Spanish
-  /** French language. */
+  /** Represents the French language. */
   case French
