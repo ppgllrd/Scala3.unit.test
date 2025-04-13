@@ -66,6 +66,30 @@ trait Logger:
    */
   def flush(): Unit
 
+
+object Logger:
+  /**
+   * Applies sentence capitalization to the given text.
+   * This method capitalizes the first letter of each sentence
+   * while ignoring ANSI color codes and whitespace.
+   *
+   * It handles:
+   *  - Beginning of the string (`^`).
+   *  - After a period (`.`), newline (`\n`), or carriage return (`\r`).
+   *  - Ignoring whitespace (`\s*`) and line breaks (`\R*`) in between.
+   *  - Ignoring ANSI escape codes (`\u001B\[``[0-9;]*m)*`).
+    *  - Capitalizing the first lowercase letter found (`[a-z]`).
+   *
+   * @param text The input text to be processed.
+   * @return The text with the first letter of each sentence capitalized.
+   */
+  def applySentenceCapitalization(text: String): String =
+    val rulePattern = """(?m)(?:^|[.\n\r]\s*)(\u001B\[[0-9;]*m)*([a-z])""".r
+    rulePattern.replaceAllIn(text, m =>
+      // Reconstruct the match: everything up to the letter + capitalized letter
+      m.group(0).stripSuffix(m.group(2)) + m.group(2).toUpperCase()
+    )
+
 // --- Concrete Logger Implementations ---
 
 /**
@@ -91,7 +115,10 @@ class ConsoleLogger extends Logger:
   /** Logs the formatted message obtained from `result.message`. */
   def logResult(result: TestResult)(using config: Config): Unit = {
     // The result.message method uses the implicit config for localization and formatting (without color here)
-    println(result.message)
+    val rawMessage = result.message
+    // Apply sentence capitalization to the message
+    val capitalizedMessage = Logger.applySentenceCapitalization(rawMessage)
+    println(capitalizedMessage)
   }
 
   /** Flushes `System.out`. */

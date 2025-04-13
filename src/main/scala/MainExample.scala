@@ -33,21 +33,21 @@ object MainExample:
       "Non-Empty List",
       List(1, 2, 3),
       property = _.nonEmpty,
-      help = Some("The generated list should not be empty") // User-provided help
+      help = Some("the generated list should not be empty") // User-provided help
     )
 
     val testPositiveSum = TestFactory.property[Int](
       "Positive Sum",
       List(5, 10, -2).sum,
       property = _ > 0,
-      mkString = i => s"The sum was $i" // Custom formatting for result
+      mkString = i => s"the sum was $i" // Custom formatting for result
     )
 
     val testEvenFail = TestFactory.property[Int](
       "Should Be Even",
       7,
       property = _ % 2 == 0,
-      help = Some("The resulting number must be divisible by 2") // Fails
+      help = Some("the resulting number must be divisible by 2") // Fails
     )
 
     // --- Assert/Refute Tests ---

@@ -32,9 +32,6 @@ sealed trait TestResult:
  */
 object TestResult:
 
-  private def lowerCapitalize(str: String): String =
-    str.headOption.map(_.toLower + str.tail).getOrElse(str)
-
   /** Represents a successful test execution. */
   case class Success() extends TestResult:
     override def isSuccess: Boolean = true
@@ -116,7 +113,7 @@ object TestResult:
       // Basic message indicating wrong type thrown
       val wrongTypeMsg = config.msg("wrong.exception.type.basic", thrownName)
       // Message indicating what was expected instead
-      val butExpectedMsg = config.msg("but.expected", lowerCapitalize(expectedExceptionDescription))
+      val butExpectedMsg = config.msg("but.expected", expectedExceptionDescription)
       s"""
          |   $failedMarker
          |   $wrongTypeMsg
@@ -161,7 +158,7 @@ object TestResult:
       // Basic message indicating wrong type and message thrown
       val wrongAllMsg = config.msg("wrong.exception.and.message.basic", thrownName, actualMsgStr)
        // Message indicating what was expected instead
-      val butExpectedMsg = config.msg("but.expected", lowerCapitalize(expectedExceptionDescription))
+      val butExpectedMsg = config.msg("but.expected", expectedExceptionDescription)
       s"""
          |   $failedMarker
          |   $wrongAllMsg
