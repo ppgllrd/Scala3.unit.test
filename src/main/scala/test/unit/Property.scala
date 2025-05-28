@@ -101,8 +101,7 @@ class Property[T](
         } else {
           // Property failed
           TestResult.PropertyFailure(
-            result = result,
-            mkString = r => formatResult(r)(using config), // Pass lambda that uses formatResult
+            mkString = (r: T) => formatResult(r)(using config), // Pass lambda that uses formatResult
             propertyDescription = currentPropertyDesc
           )
         }

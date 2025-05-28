@@ -51,7 +51,6 @@ object TestResult:
 
   /** Failure because a property predicate returned `false`. */
   case class PropertyFailure[T](
-    result: T, // The actual result obtained from evaluation
     mkString: T => String, // Function to format the result T to String
     propertyDescription: String // Pre-formatted description of the expected property
   ) extends Failure:
@@ -59,11 +58,9 @@ object TestResult:
     override def message(using config: Config): String =
       val logger = config.logger
       // Format the obtained result (colored red) using the provided mkString function
-      val obtainedMsg = config.msg("obtained.result", logger.red(mkString(result)))
       s"""
          |   $failedMarker
-         |   $propertyDescription
-         |   $obtainedMsg""".stripMargin
+         |   $propertyDescription""".stripMargin
 
   /** Failure because the actual result was not equal to the expected value (using `==` or custom `equalsFn`). */
   case class EqualityFailure[T](
