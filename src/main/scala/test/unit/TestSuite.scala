@@ -89,7 +89,7 @@ object TestSuite:
 
     // Print the formatted summary block
     logger.println(logger.bold(logger.blue("=" * 40))) // Header separator
-    logger.println(logger.bold(logger.blue(config.msg("summary.tittle")))) // Localized title
+    logger.println(logger.bold(logger.blue(config.msg("summary.title")))) // Localized title
     logger.println(logger.bold(logger.blue("=" * 40))) // Separator
     logger.println(config.msg("summary.suites.run", totalSuites)) // Suites run count
     logger.println(config.msg("summary.total.tests", totalTests)) // Total tests count
