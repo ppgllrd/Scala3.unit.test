@@ -54,10 +54,9 @@ object TestResult:
     mkString: T => String, // Function to format the result T to String
     propertyDescription: String // Pre-formatted description of the expected property
   ) extends Failure:
-    /** Formats a message including the failure marker, property description, and the obtained result. */
+    /** Formats a message including the failure marker and property description. */
     override def message(using config: Config): String =
       val logger = config.logger
-      // Format the obtained result (colored red) using the provided mkString function
       s"""
          |   $failedMarker
          |   $propertyDescription""".stripMargin

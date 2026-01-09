@@ -50,7 +50,7 @@ object I18n:
       "results.failed" -> "Failed",
       "results.total" -> "Total",
       "results.detail" -> "Detail",
-      "summary.tittle" -> "Overall Summary",
+      "summary.title" -> "Overall Summary",
       "summary.suites.run" -> "Suites run: %d", // %1$=number of suites
       "summary.total.tests" -> "Total tests: %d", // %1$=total tests
       "summary.success.rate" -> "Success rate: %.2f%%" // %1$=success rate percentage
@@ -95,7 +95,7 @@ object I18n:
       "results.failed" -> "Fallidas", // (pruebas fallidas)
       "results.total" -> "Total",
       "results.detail" -> "Detalle",
-      "summary.tittle" -> "Resumen general",
+      "summary.title" -> "Resumen general",
       "summary.suites.run" -> "Suites ejecutadas: %d", // %1$=number of suites
       "summary.total.tests" -> "Total de pruebas: %d", // %1$=total tests
       "summary.success.rate" -> "Tasa de éxito: %.2f%%" // %1$=success rate percentage
@@ -140,7 +140,7 @@ object I18n:
       "results.failed" -> "Échoués",
       "results.total" -> "Total",
       "results.detail" -> "Détail",
-      "summary.tittle" -> "Résumé Général",
+      "summary.title" -> "Résumé Général",
       "summary.suites.run" -> "Suites exécutées: %d",
       "summary.total.tests" -> "Total des tests: %d",
       "summary.success.rate" -> "Taux de réussite: %.2f%%"
